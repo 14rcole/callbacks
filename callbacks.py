@@ -1,24 +1,19 @@
-from types import MethodType, FunctionType
-from functools import update_wrapper
+from types import MethodType
 from collections import defaultdict
 import uuid
 import inspect
 
 class supports_callbacks(object):
     '''
-        This decorator turns a function or a class method into a function which
-    is able to register callbacks.  Callbacks can be registered to be run
-    before and/or after the target function.  See the docstring for
-    add_callback for more information.
+        This decorator enables a function or a class/instance method to register
+    callbacks.  Callbacks can be registered to be run before or after the
+    target function (or after the target function raises an exception).
+    See the docstring for add_*_callback for more information.
     '''
     def __init__(self, target):
         self.target = target
         self._update_docstring(target)
-        self._pre_callbacks = defaultdict(list)
-        self._post_callbacks = defaultdict(list)
-        self._callback_functions = {} 
-        self._takes_target_args_status = {}
-        self._takes_target_results_status = {}
+        self._initialize()
 
     def __get__(self, obj, obj_type=None):
         return MethodType(self, obj, obj_type)
@@ -32,72 +27,147 @@ class supports_callbacks(object):
         %s
 
         This %s supports callbacks.
-          %s.add_callback(callback)    returns: label
+          %s.add_pre_callback(callback)          returns: label
+          %s.add_post_callback(callback)         returns: label
+          %s.add_exception_callback(callback)    returns: label
           %s.remove_callback(label)
-        ''' % ( target.__name__,
-                inspect.formatargspec(*inspect.getargspec(target)),
-                target.__doc__,
-                method_or_function[inspect.ismethod(target)],
-                target.__name__,
-                target.__name__)
+        ''' % (target.__name__,
+               inspect.formatargspec(*inspect.getargspec(target)),
+               target.__doc__,
+               method_or_function[inspect.ismethod(target)],
+               target.__name__,
+               target.__name__,
+               target.__name__,
+               target.__name__)
 
         self.__doc__ = docstring
 
-    @property
-    def callbacks(self):
-        return self._callback_functions
+    def _initialize(self):
+        # these hold the order in which callbacks were added
+        self._pre_callbacks = defaultdict(list)
+        self._post_callbacks = defaultdict(list)
+        self._exception_callbacks = defaultdict(list)
+        # this holds the callback functions and how they should be called
+        self.callbacks = defaultdict(dict)
 
-    def add_callback(self, callback, 
-            priority=0, 
+        # alias
+        self.add_callback = self.add_post_callback
+
+    def add_post_callback(self, callback,
+            priority=0,
             label=None,
-            takes_target_args=False, 
-            takes_target_results=False, 
-            call_before=False):
+            takes_target_args=False,
+            takes_target_result=False):
         '''
-        Registers the callback to be called after* the target.
+            Registers the callback to be called after the target is called.
         Inputs:
-            callback: The callback function that will be called after*
-                the target function is run.
-            priority: Higher priority callbacks are run first,
+            callback: The callback function that will be called after
+                the target is called.
+            priority: Integer. Higher priority callbacks are run first,
                 ties are broken by the order in which callbacks were added.
             label: A name to call this callback, must be unique (and hashable)
-                or None, if non-unique it will raise a RuntimeError.
+                or None, if non-unique a RuntimeError will be raised.
                 If None, a unique label will be automatically generated.
-                NOTE: Callbacks can be removed using their label. 
+                NOTE: Callbacks can be removed using their label.
                       (see remove_callback)
-            takes_target_args: If True, callback function will accept the 
-                arguments and keyword arguments that are supplied to the 
+            takes_target_args: If True, callback function will be passed the
+                arguments and keyword arguments that are supplied to the
                 target function.
-            takes_target_results: If True, callback will accept as its first 
-                argument the results of the target function.
-            *call_before: If True, the callback function will be called
-                before the target function.  If True, the take_target_results 
-                argument is ignored.
+            takes_target_result: If True, callback will be passed, as
+                its first argument, the value returned from calling the
+                target function.
         Returns:
             label
         '''
+        priority, label = self._add_callback(callback, priority, label,
+                takes_target_args)
+        self._post_callbacks[priority].append(label)
+        self.callbacks[label]['takes_target_result'] = takes_target_result
+        return label
+
+    def add_exception_callback(self, callback,
+            priority=0,
+            label=None,
+            takes_target_args=False,
+            handles_exception=False):
+        '''
+            Registers the callback to be called after the target raises an
+        exception.  Exception callbacks are called in priority order and can
+        handle the exception if they register with <handles_exception>.
+        Inputs:
+            callback: The callback function that will be called after
+                the target function raises an exception.
+            priority: Integer. Higher priority callbacks are run first,
+                ties are broken by the order in which callbacks were added.
+            label: A name to call this callback, must be unique (and hashable)
+                or None, if non-unique a RuntimeError will be raised.
+                If None, a unique label will be automatically generated.
+                NOTE: Callbacks can be removed using their label.
+                      (see remove_callback)
+            takes_target_args: If True, callback function will be passed the
+                arguments and keyword arguments that are supplied to the
+                target function.
+            handles_exception: If True, callback will be passed (as
+                its first argument) the exception raised by the target function
+                or a higher priority exception_callback which raised an
+                exception.  If True, this function is responsible for
+                handling the exception or reraising it!  NOTE: If True and
+                the exception has already been handled, this callback will
+                not be called.
+        Returns:
+            label
+        '''
+        priority, label = self._add_callback(callback, priority, label,
+                takes_target_args)
+        self._exception_callbacks[priority].append(label)
+        self.callbacks[label]['handles_exception'] = handles_exception
+        return label
+
+    def add_pre_callback(self, callback,
+            priority=0,
+            label=None,
+            takes_target_args=False):
+        '''
+        Registers the callback to be called before the target.
+        Inputs:
+            callback: The callback function that will be called before
+                the target function is run.
+            priority: Integer. Higher priority callbacks are run first,
+                ties are broken by the order in which callbacks were added.
+            label: A name to call this callback, must be unique (and hashable)
+                or None, if non-unique a RuntimeError will be raised.
+                If None, a unique label will be automatically generated.
+                NOTE: Callbacks can be removed using their label.
+                      (see remove_callback)
+            takes_target_args: If True, callback function will be passed the
+                arguments and keyword arguments that are supplied to the
+                target function.
+        Returns:
+            label
+        '''
+        priority, label = self._add_callback(callback, priority, label,
+                takes_target_args)
+        self._pre_callbacks[priority].append(label)
+        return label
+
+    def _add_callback(self, callback, priority, label, takes_target_args):
         try:
             priority = int(priority)
         except:
-            raise RuntimeError('Priority could not be cast into an integer.')
+            raise ValueError('Priority could not be cast into an integer.')
 
         if label is None:
             label = uuid.uuid4()
 
-        if label in self._callback_functions.keys():
-            raise RuntimeError('Callback with label="%s" already registered.' 
+        if label in self.callbacks.keys():
+            raise RuntimeError('Callback with label="%s" already registered.'
                     % label)
-        else:
-            self._callback_functions[label] = callback
 
-        if call_before:
-            self._pre_callbacks[priority].append(label)
-        else:
-            self._post_callbacks[priority].append(label)
+        self.callbacks[label]['function'] = callback
+        self.callbacks[label]['priority'] = priority
+        self.callbacks[label]['takes_target_args'] = takes_target_args
 
-        self._takes_target_args_status[label] = takes_target_args
-        self._takes_target_results_status[label] = takes_target_results
-        return label
+        return priority, label
 
     def remove_callback(self, label):
         '''
@@ -105,29 +175,25 @@ class supports_callbacks(object):
         Inputs:
             label: The name of the callback.  This was either supplied as a
                 keyword argument to add_callback or was automatically generated
-                and returned from add_callback. If label is not valid a 
+                and returned from add_callback. If label is not valid a
                 RuntimeError is raised.
         Returns:
             None
         '''
-        if label not in self._callback_functions.keys():
+        if label not in self.callbacks.keys():
             raise RuntimeError(
-                    'No callback with label "%s" attached to function "%s"' % 
-                    (label, self.f.__name__))
+                    'No callback with label "%s" attached to function "%s"' %
+                    (label, self.target.__name__))
 
-        for priority in self._pre_callbacks.keys():
-            if label in self._pre_callbacks[priority]:
-                self._pre_callbacks[priority].remove(label)
+        for index in [self._pre_callbacks, self._post_callbacks,
+                self._exception_callbacks]:
+            for priority in index.keys():
+                if label in index[priority]:
+                    index[priority].remove(label)
 
-        for priority in self._post_callbacks.keys():
-            if label in self._post_callbacks[priority]:
-                self._post_callbacks[priority].remove(label)
+        del self.callbacks[label]
 
-        del self._takes_target_args_status[label]
-        del self._takes_target_results_status[label]
-        del self._callback_functions[label]
-
-    def remove_callbacks(self, labels=[]):
+    def remove_callbacks(self, labels=None):
         '''
         Unregisters callback(s) from the target.
         Inputs:
@@ -136,7 +202,7 @@ class supports_callbacks(object):
         Returns:
             None
         '''
-        if labels:
+        if labels is not None:
             bad_labels = []
             for label in labels:
                 try:
@@ -146,14 +212,10 @@ class supports_callbacks(object):
                     continue
             if bad_labels:
                 raise RuntimeError(
-                    'No callbacks with labels "%s" attached to function %s' % 
-                    (bad_labels, self.f.__name__))
+                    'No callbacks with labels %s attached to function %s' %
+                    (bad_labels, self.target.__name__))
         else:
-            self._pre_callbacks = defaultdict(list)
-            self._post_callbacks = defaultdict(list)
-            self._callback_functions = {} 
-            self._takes_target_args_status = {}
-            self._takes_target_results_status = {}
+            self._initialize()
 
     def __call__(self, *args, **kwargs):
         if inspect.ismethod(self.target):
@@ -162,30 +224,64 @@ class supports_callbacks(object):
             cb_args = args
 
         self._call_pre_callbacks(*cb_args, **kwargs)
-        target_result = self.target(*args, **kwargs)
-        self._call_post_callbacks(target_result, *cb_args, **kwargs)
-
-        return target_result
+        try:
+            target_result = self.target(*args, **kwargs)
+        except Exception as e:
+            self._call_exception_callbacks(e, *cb_args, **kwargs)
+        else:
+            self._call_post_callbacks(target_result, *cb_args, **kwargs)
+            return target_result
 
     def _call_pre_callbacks(self, *args, **kwargs):
         for priority in reversed(sorted(self._pre_callbacks.keys())):
             for label in self._pre_callbacks[priority]:
-                if self._takes_target_args_status[label]:
-                    self._callback_functions[label](*args, **kwargs)
+                callback = self.callbacks[label]['function']
+                takes_target_args = self.callbacks[label]['takes_target_args']
+                if takes_target_args:
+                    callback(*args, **kwargs)
                 else:
-                    self._callback_functions[label]()
+                    callback()
+
+    def _call_exception_callbacks(self, exception, *args, **kwargs):
+        for priority in sorted(self._exception_callbacks.keys(), reverse=True):
+            for label in self._exception_callbacks[priority]:
+                callback = self.callbacks[label]['function']
+                takes_target_args = self.callbacks[label]['takes_target_args']
+                hanldes_exception = self.callbacks[label]['handles_exception']
+
+                if handles_exception and exception is None:
+                    # exception has already been handled, only call callbacks
+                    # that don't handle exceptions
+                    continue
+
+                if takes_target_args and handles_exception:
+                    try:
+                        callback(exception, *args, **kwargs)
+                        exception = None
+                    except Exception as exception:
+                        continue
+                elif handles_exception:
+                    try:
+                        callback(exception)
+                        exception = None
+                    except Exception as exception:
+                        continue
+                elif takes_target_args:
+                    callback(*args, **kwargs)
+                else:
+                    callback()
 
     def _call_post_callbacks(self, target_result, *args, **kwargs):
-        for priority in reversed(sorted(self._post_callbacks.keys())):
+        for priority in sorted(self._post_callbacks.keys(), reverse=True):
             for label in self._post_callbacks[priority]:
-                takes_args = self._takes_target_args_status[label]
-                takes_results = self._takes_target_results_status[label]
-                if takes_args and takes_results:
-                    self._callback_functions[label](target_result, 
-                            *args, **kwargs)
-                elif takes_results:
-                    self._callback_functions[label](target_result)
-                elif takes_args:
-                    self._callback_functions[label](*args, **kwargs)
+                callback = self.callbacks[label]['function']
+                takes_target_args = self.callbacks[label]['takes_target_args']
+                takes_target_result = self.callbacks[label]['takes_target_result']
+                if takes_target_args and takes_target_result:
+                    callback(target_result, *args, **kwargs)
+                elif takes_target_result:
+                    callback(target_result)
+                elif takes_target_args:
+                    callback(*args, **kwargs)
                 else:
-                    self._callback_functions[label]()
+                    callback()
