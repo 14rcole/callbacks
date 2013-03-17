@@ -233,7 +233,7 @@ class supports_callbacks(object):
             return target_result
 
     def _call_pre_callbacks(self, *args, **kwargs):
-        for priority in reversed(sorted(self._pre_callbacks.keys())):
+        for priority in sorted(self._pre_callbacks.keys(), reverse=True):
             for label in self._pre_callbacks[priority]:
                 callback = self.callbacks[label]['function']
                 takes_target_args = self.callbacks[label]['takes_target_args']
@@ -247,7 +247,7 @@ class supports_callbacks(object):
             for label in self._exception_callbacks[priority]:
                 callback = self.callbacks[label]['function']
                 takes_target_args = self.callbacks[label]['takes_target_args']
-                hanldes_exception = self.callbacks[label]['handles_exception']
+                handles_exception = self.callbacks[label]['handles_exception']
 
                 if handles_exception and exception is None:
                     # exception has already been handled, only call callbacks
