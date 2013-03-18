@@ -1,15 +1,17 @@
 from setuptools import setup, find_packages
 
-entry_points = '''
-'''
-
 setup(
         name = 'callbacks',
-        version = '0.1',
+        author = 'David Morton',
+        author_email = 'davidlmorton@gmail.com',
+        version = '0.1.3',
+        license = 'LICENSE.txt',
+        description = 'Simple callbacks using decorators',
+        long_description = open('README.txt').read(),
+        url = 'https://github.com/davidlmorton/callbacks',
         packages = find_packages(exclude=[
             'tests',
         ]),
-        entry_points = entry_points,
         install_requires = [
         ],
         setup_requires = [

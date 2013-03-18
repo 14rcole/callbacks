@@ -44,6 +44,21 @@ class TestCallbackDecorator(unittest.TestCase):
         self.assertEquals(len(called_with), 2)
         self.assertEquals(called_with[1], (tuple(), {}))
 
+    def test_raises(self):
+        self.assertRaises(ValueError, foo.add_callback, callback, priority='boo')
+
+    def test_duplicate_label(self):
+        foo.add_callback(callback, label='a')
+        self.assertRaises(RuntimeError, foo.add_callback, callback, label='a')
+
+    def test_remove_raises(self):
+        foo.add_callback(callback)
+        foo.add_callback(callback, label='good_label')
+
+        self.assertRaises(RuntimeError, foo.remove_callback, 'bad_label')
+        self.assertRaises(RuntimeError, foo.remove_callbacks, ['bad_label', 'good_label'])
+        self.assertEqual(len(foo.callbacks), 1)
+
     def test_with_takes_target_args(self):
         result = foo(10, 20)
         self.assertEquals(result, (10, 20))
@@ -243,7 +258,7 @@ class TestOnMethod(unittest.TestCase):
     def callback(self, *args, **kwargs):
             self.called_with.append((args, kwargs))
 
-    @supports_callbacks
+    @supports_callbacks(target_is_method=True)
     def target(self, *args, **kwargs):
         return (args, kwargs)
 
@@ -268,5 +283,11 @@ class TestOnMethod(unittest.TestCase):
         self.assertEquals(len(self.called_with), 2)
         self.assertEquals(self.called_with[1], (tuple(), {}))
 
+    def test_method_with_takes_target_args(self):
+        self.target.add_callback(self.callback, takes_target_args=True)
 
+        result = self.target(10, 20, key='value')
+        self.assertEquals(result, ((10, 20), {'key':'value'}))
+        self.assertEquals(len(self.called_with), 1)
+        self.assertEquals(self.called_with[0], ((10, 20), {'key':'value'}))
 

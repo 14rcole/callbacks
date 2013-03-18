@@ -3,14 +3,15 @@ from collections import defaultdict
 import uuid
 import inspect
 
-class supports_callbacks(object):
+class BaseSupportsCallbacks(object):
     '''
         This decorator enables a function or a class/instance method to register
     callbacks.  Callbacks can be registered to be run before or after the
     target function (or after the target function raises an exception).
     See the docstring for add_*_callback for more information.
     '''
-    def __init__(self, target):
+    def __init__(self, target, target_is_method=False):
+        self._target_is_method = target_is_method
         self.target = target
         self._update_docstring(target)
         self._initialize()
@@ -34,7 +35,7 @@ class supports_callbacks(object):
         ''' % (target.__name__,
                inspect.formatargspec(*inspect.getargspec(target)),
                target.__doc__,
-               method_or_function[inspect.ismethod(target)],
+               method_or_function[self._target_is_method],
                target.__name__,
                target.__name__,
                target.__name__,
@@ -63,7 +64,7 @@ class supports_callbacks(object):
         Inputs:
             callback: The callback function that will be called after
                 the target is called.
-            priority: Integer. Higher priority callbacks are run first,
+            priority: Number. Higher priority callbacks are run first,
                 ties are broken by the order in which callbacks were added.
             label: A name to call this callback, must be unique (and hashable)
                 or None, if non-unique a RuntimeError will be raised.
@@ -97,7 +98,7 @@ class supports_callbacks(object):
         Inputs:
             callback: The callback function that will be called after
                 the target function raises an exception.
-            priority: Integer. Higher priority callbacks are run first,
+            priority: Number. Higher priority callbacks are run first,
                 ties are broken by the order in which callbacks were added.
             label: A name to call this callback, must be unique (and hashable)
                 or None, if non-unique a RuntimeError will be raised.
@@ -132,7 +133,7 @@ class supports_callbacks(object):
         Inputs:
             callback: The callback function that will be called before
                 the target function is run.
-            priority: Integer. Higher priority callbacks are run first,
+            priority: Number. Higher priority callbacks are run first,
                 ties are broken by the order in which callbacks were added.
             label: A name to call this callback, must be unique (and hashable)
                 or None, if non-unique a RuntimeError will be raised.
@@ -152,9 +153,9 @@ class supports_callbacks(object):
 
     def _add_callback(self, callback, priority, label, takes_target_args):
         try:
-            priority = int(priority)
+            priority = float(priority)
         except:
-            raise ValueError('Priority could not be cast into an integer.')
+            raise ValueError('Priority could not be cast into a float.')
 
         if label is None:
             label = uuid.uuid4()
@@ -218,7 +219,7 @@ class supports_callbacks(object):
             self._initialize()
 
     def __call__(self, *args, **kwargs):
-        if inspect.ismethod(self.target):
+        if self._target_is_method:
             cb_args = args[1:] # skip over 'self' arg
         else:
             cb_args = args
@@ -227,10 +228,9 @@ class supports_callbacks(object):
         try:
             target_result = self.target(*args, **kwargs)
         except Exception as e:
-            self._call_exception_callbacks(e, *cb_args, **kwargs)
-        else:
-            self._call_post_callbacks(target_result, *cb_args, **kwargs)
-            return target_result
+            target_result = self._call_exception_callbacks(e, *cb_args, **kwargs)
+        self._call_post_callbacks(target_result, *cb_args, **kwargs)
+        return target_result
 
     def _call_pre_callbacks(self, *args, **kwargs):
         for priority in sorted(self._pre_callbacks.keys(), reverse=True):
@@ -243,6 +243,7 @@ class supports_callbacks(object):
                     callback()
 
     def _call_exception_callbacks(self, exception, *args, **kwargs):
+        result = None
         for priority in sorted(self._exception_callbacks.keys(), reverse=True):
             for label in self._exception_callbacks[priority]:
                 callback = self.callbacks[label]['function']
@@ -256,13 +257,13 @@ class supports_callbacks(object):
 
                 if takes_target_args and handles_exception:
                     try:
-                        callback(exception, *args, **kwargs)
+                        result = callback(exception, *args, **kwargs)
                         exception = None
                     except Exception as exception:
                         continue
                 elif handles_exception:
                     try:
-                        callback(exception)
+                        result = callback(exception)
                         exception = None
                     except Exception as exception:
                         continue
@@ -270,6 +271,10 @@ class supports_callbacks(object):
                     callback(*args, **kwargs)
                 else:
                     callback()
+        if exception is not None:
+            raise exception
+        else:
+            return result
 
     def _call_post_callbacks(self, target_result, *args, **kwargs):
         for priority in sorted(self._post_callbacks.keys(), reverse=True):
@@ -285,3 +290,28 @@ class supports_callbacks(object):
                     callback(*args, **kwargs)
                 else:
                     callback()
+
+class MethodSupportsCallbacks(BaseSupportsCallbacks):
+    def __init__(self, target):
+        BaseSupportsCallbacks.__init__(self, target, target_is_method=True)
+
+class FunctionSupportsCallbacks(BaseSupportsCallbacks):
+    def __init__(self, target):
+        BaseSupportsCallbacks.__init__(self, target, target_is_method=False)
+
+def supports_callbacks(target_is_method=False):
+    # support bare @supports_callbacks syntax (no calling brackets)
+    if callable(target_is_method):
+        return FunctionSupportsCallbacks(target_is_method)
+
+    if target_is_method:
+        return MethodSupportsCallbacks
+    else:
+        return FunctionSupportsCallbacks
+
+def method_supports_callbacks(target):
+    return MethodSupportsCallbacks(target)
+
+def function_supports_callbacks(target):
+    return FunctionSupportsCallbacks(target)
+
