@@ -1,40 +1,67 @@
+from collections import defaultdict
 import unittest
 
 from callbacks import supports_callbacks
 
-class TestOnMethod(unittest.TestCase):
-    def callback(self, *args, **kwargs):
-            self.called_with.append((args, kwargs))
+callback_called_with = []
+def example_callback(*args, **kwargs):
+    print "CALLBACK called with args=%s kwargs=%s" %\
+                (str(args), str(kwargs))
+    callback_called_with.append((args, kwargs))
+
+class ExampleClass(object):
+    def __init__(self):
+        self.method_called_with = []
 
     @supports_callbacks(target_is_method=True)
-    def target(self, *args, **kwargs):
-        return (args, kwargs)
+    def example_method(self, *args, **kwargs):
+        print "METHOD called with args=%s kwargs=%s" %\
+                (str(args), str(kwargs))
+        self.method_called_with.append((args, kwargs))
+        return
 
+
+class TestOnMethod(unittest.TestCase):
     def setUp(self):
-        self.called_with = []
-        self.target.remove_callbacks()
+        while callback_called_with:
+            callback_called_with.pop()
+        self.example = ExampleClass()
 
     def test_method_with_defaults(self):
-        result = self.target(10, 20, key='value')
-        self.assertEquals(result, ((10, 20), {'key':'value'}))
-        self.assertEquals(len(self.called_with), 0)
+        e = self.example
+        e.example_method(10, 20, key='value')
+        self.assertEquals(len(callback_called_with), 0)
+        self.assertEquals(len(e.method_called_with), 1)
+        self.assertEquals(e.method_called_with[0],
+                ((10, 20), {'key':'value'}))
 
-        self.target.add_callback(self.callback)
+        e.example_method.add_callback(example_callback)
 
-        result = self.target(10, 20, key='value')
-        self.assertEquals(result, ((10, 20), {'key':'value'}))
-        self.assertEquals(len(self.called_with), 1)
-        self.assertEquals(self.called_with[0], (tuple(), {}))
+        e.example_method(11, 21, key='another_value')
+        self.assertEquals(len(callback_called_with), 1)
+        self.assertEquals(len(e.method_called_with), 2)
 
-        result = self.target(30, 40, key='another_value')
-        self.assertEquals(result, ((30, 40), {'key':'another_value'}))
-        self.assertEquals(len(self.called_with), 2)
-        self.assertEquals(self.called_with[1], (tuple(), {}))
+        self.assertEquals(e.method_called_with[1],
+                ((11, 21), {'key':'another_value'}))
+        self.assertEquals(callback_called_with[0],
+                (tuple(),{}))
 
     def test_method_with_takes_target_args(self):
-        self.target.add_callback(self.callback, takes_target_args=True)
+        e = self.example
+        e.example_method(10, 20, key='value')
+        self.assertEquals(len(callback_called_with), 0)
+        self.assertEquals(len(e.method_called_with), 1)
+        self.assertEquals(e.method_called_with[0],
+                ((10, 20), {'key':'value'}))
 
-        result = self.target(10, 20, key='value')
-        self.assertEquals(result, ((10, 20), {'key':'value'}))
-        self.assertEquals(len(self.called_with), 1)
-        self.assertEquals(self.called_with[0], ((10, 20), {'key':'value'}))
+        e.example_method.add_callback(example_callback,
+                takes_target_args=True)
+
+        e.example_method(11, 21, key='another_value')
+        self.assertEquals(len(callback_called_with), 1)
+        self.assertEquals(len(e.method_called_with), 2)
+
+        self.assertEquals(e.method_called_with[1],
+                ((11, 21), {'key':'another_value'}))
+        self.assertEquals(callback_called_with[0],
+                ((11, 21), {'key':'another_value'}))
