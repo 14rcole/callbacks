@@ -39,20 +39,27 @@ class SupportsCallbacks(object):
     def _update_docstring(self, target):
         method_or_function = {True:'method',
                               False:'function'}
-        docstring = \
-        '''
-            %s%s
-        %s
+        old_docstring = target.__doc__
+        if old_docstring is None:
+            old_docstring = '<No docstring was previously set>'
 
-        This %s supports callbacks.
-          %s.add_pre_callback(callback)          returns: label
-          %s.add_post_callback(callback)         returns: label
-          %s.add_exception_callback(callback)    returns: label
-          %s.remove_callback(label)
-        ''' % (target.__name__,
+        docstring = '''
+    %s%s
+%s
+
+This %s supports callbacks.
+  %s.add_pre_callback(callback)          returns: label
+  %s.add_post_callback(callback)         returns: label
+  %s.add_exception_callback(callback)    returns: label
+  %s.remove_callback(label)              removes a single callback
+  %s.remove_callbacks()                  removes all callbacks
+  %s.list_callbacks()                    prints callback information
+''' % (target.__name__,
                inspect.formatargspec(*inspect.getargspec(target)),
-               target.__doc__,
+               old_docstring,
                method_or_function[self._target_is_method],
+               target.__name__,
+               target.__name__,
                target.__name__,
                target.__name__,
                target.__name__,
@@ -70,6 +77,17 @@ class SupportsCallbacks(object):
 
         # alias
         self.add_callback = self.add_post_callback
+
+    def list_callbacks(self):
+        '''
+            List all of the callbacks registered to this function or method.
+        '''
+        format_string = '%38s  %9s  %6s  %10s  %11s  %14s'
+        print format_string % ('Label', 'priority', 'order', 'type', 'takes args', 'takes result')
+        for label, info in self.callbacks.items():
+            order = getattr(self, '_%s_callbacks' % info['type'])[info['priority']].index(label)
+            print format_string % (label, info['priority'], order,
+                    info['type'], info['takes_target_args'], info.get('takes_target_result', 'N/A'))
 
     def add_post_callback(self, callback,
             priority=0,
@@ -97,8 +115,9 @@ class SupportsCallbacks(object):
         Returns:
             label
         '''
-        priority, label = self._add_callback(callback, priority, label,
-                takes_target_args)
+        priority, label = self._add_callback(callback=callback,
+                priority=priority, label=label,
+                takes_target_args=takes_target_args, type='post')
         self._post_callbacks[priority].append(label)
         self.callbacks[label]['takes_target_result'] = takes_target_result
         return label
@@ -135,8 +154,9 @@ class SupportsCallbacks(object):
         Returns:
             label
         '''
-        priority, label = self._add_callback(callback, priority, label,
-                takes_target_args)
+        priority, label = self._add_callback(callback=callback,
+                priority=priority, label=label,
+                takes_target_args=takes_target_args, type='exception')
         self._exception_callbacks[priority].append(label)
         self.callbacks[label]['handles_exception'] = handles_exception
         return label
@@ -163,12 +183,13 @@ class SupportsCallbacks(object):
         Returns:
             label
         '''
-        priority, label = self._add_callback(callback, priority, label,
-                takes_target_args)
+        priority, label = self._add_callback(callback=callback,
+                priority=priority, label=label,
+                takes_target_args=takes_target_args, type='pre')
         self._pre_callbacks[priority].append(label)
         return label
 
-    def _add_callback(self, callback, priority, label, takes_target_args):
+    def _add_callback(self, callback, priority, label, takes_target_args, type):
         try:
             priority = float(priority)
         except:
@@ -184,6 +205,7 @@ class SupportsCallbacks(object):
         self.callbacks[label]['function'] = callback
         self.callbacks[label]['priority'] = priority
         self.callbacks[label]['takes_target_args'] = takes_target_args
+        self.callbacks[label]['type'] = type
 
         return priority, label
 
