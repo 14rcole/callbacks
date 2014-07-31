@@ -12,7 +12,6 @@ def target():
 
 target.add_callback(callback)
 
-print "This should print 'hello Polly!':"
 target() # prints "hello Polly!"
 ```
 
