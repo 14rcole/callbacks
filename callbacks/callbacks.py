@@ -16,9 +16,6 @@ class BaseSupportsCallbacks(object):
         self._update_docstring(target)
         self._initialize()
 
-    def __get__(self, obj, obj_type=None):
-        return MethodType(self, obj, obj_type)
-
     def _update_docstring(self, target):
         method_or_function = {True:'method',
                               False:'function'}
@@ -291,9 +288,25 @@ class BaseSupportsCallbacks(object):
                 else:
                     callback()
 
-class MethodSupportsCallbacks(BaseSupportsCallbacks):
+class MethodSupportsCallbacks(object):
     def __init__(self, target):
-        BaseSupportsCallbacks.__init__(self, target, target_is_method=True)
+        self.target= target
+        self.id = uuid.uuid4()
+
+    def __get__(self, obj, obj_type=None):
+        """
+            To allow each instance of a class to have different callbacks
+        registered we store a callback registry on the instance itself.
+        Keying off of the id of the decorator allows us to have multiple
+        methods support callbacks on the same instance simultaneously.
+        """
+        if (not hasattr(obj, '_callback_registry')):
+            obj._callback_registry = {}
+        if (self.id not in obj._callback_registry):
+            obj._callback_registry[self.id] = BaseSupportsCallbacks(self.target,
+                    target_is_method=True)
+        return MethodType(obj._callback_registry[self.id], obj, obj_type)
+
 
 class FunctionSupportsCallbacks(BaseSupportsCallbacks):
     def __init__(self, target):
