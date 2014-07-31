@@ -3,7 +3,7 @@ from collections import defaultdict
 import uuid
 import inspect
 
-class BaseSupportsCallbacks(object):
+class SupportsCallbacks(object):
     '''
         This decorator enables a function or a class/instance method to register
     callbacks.  Callbacks can be registered to be run before or after the
@@ -11,10 +11,30 @@ class BaseSupportsCallbacks(object):
     See the docstring for add_*_callback for more information.
     '''
     def __init__(self, target, target_is_method=False):
+        self.id = uuid.uuid4()
         self._target_is_method = target_is_method
         self.target = target
         self._update_docstring(target)
         self._initialize()
+
+    def __get__(self, obj, obj_type=None):
+        """
+            To allow each instance of a class to have different callbacks
+        registered we store a callback registry on the instance itself.
+        Keying off of the id of the decorator allows us to have multiple
+        methods support callbacks on the same instance simultaneously.
+        """
+        # in case this method is being called on the class instead of an
+        # instance
+        if obj is None:
+            return self
+
+        if (not hasattr(obj, '_callback_registry')):
+            obj._callback_registry = {}
+        if (self.id not in obj._callback_registry):
+            obj._callback_registry[self.id] = SupportsCallbacks(self.target,
+                    target_is_method=True)
+        return MethodType(obj._callback_registry[self.id], obj, obj_type)
 
     def _update_docstring(self, target):
         method_or_function = {True:'method',
@@ -288,37 +308,10 @@ class BaseSupportsCallbacks(object):
                 else:
                     callback()
 
-class MethodSupportsCallbacks(object):
-    def __init__(self, target):
-        self.target= target
-        self.id = uuid.uuid4()
-
-    def __get__(self, obj, obj_type=None):
-        """
-            To allow each instance of a class to have different callbacks
-        registered we store a callback registry on the instance itself.
-        Keying off of the id of the decorator allows us to have multiple
-        methods support callbacks on the same instance simultaneously.
-        """
-        if (not hasattr(obj, '_callback_registry')):
-            obj._callback_registry = {}
-        if (self.id not in obj._callback_registry):
-            obj._callback_registry[self.id] = BaseSupportsCallbacks(self.target,
-                    target_is_method=True)
-        return MethodType(obj._callback_registry[self.id], obj, obj_type)
-
-
-class FunctionSupportsCallbacks(BaseSupportsCallbacks):
-    def __init__(self, target):
-        BaseSupportsCallbacks.__init__(self, target, target_is_method=False)
-
-def supports_callbacks(target_is_method=False):
+def supports_callbacks(target=None):
     """
-        This is a decorator, it has one keyword argument 'target_is_method' that
-    should be set to True if decorating a bound method instead of a
-    function.
-
-    Once a function/method is decorated, you can register callbacks:
+        This is a decorator.  Once a function/method is decorated, you can
+    register callbacks:
         <target>.add_pre_callback(callback)        returns: label
         <target>.add_post_callback(callback)       returns: label
         <target>.add_exception_callback(callback)  returns: label
@@ -329,21 +322,12 @@ def supports_callbacks(target_is_method=False):
 
     To remove all callbacks use:
         <target>.remove_callbacks()
+
+    To print a list of callbacks use:
+        <target>.list_callbacks()
     """
-
-    if callable(target_is_method):
+    if callable(target):
         # this support bare @supports_callbacks syntax (no calling brackets)
-        target = target_is_method
-        return FunctionSupportsCallbacks(target)
-
-    if target_is_method:
-        return MethodSupportsCallbacks
+        return SupportsCallbacks(target)
     else:
-        return FunctionSupportsCallbacks
-
-def method_supports_callbacks(target):
-    return MethodSupportsCallbacks(target)
-
-def function_supports_callbacks(target):
-    return FunctionSupportsCallbacks(target)
-
+        return SupportsCallbacks

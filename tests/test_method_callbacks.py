@@ -13,7 +13,7 @@ class ExampleClass(object):
     def __init__(self):
         self.method_called_with = []
 
-    @supports_callbacks(target_is_method=True)
+    @supports_callbacks
     def example_method(self, *args, **kwargs):
         print "METHOD called with args=%s kwargs=%s" %\
                 (str(args), str(kwargs))
