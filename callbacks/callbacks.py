@@ -300,9 +300,28 @@ class FunctionSupportsCallbacks(BaseSupportsCallbacks):
         BaseSupportsCallbacks.__init__(self, target, target_is_method=False)
 
 def supports_callbacks(target_is_method=False):
-    # support bare @supports_callbacks syntax (no calling brackets)
+    """
+        This is a decorator, it has one keyword argument 'target_is_method' that
+    should be set to True if decorating a bound method instead of a
+    function.
+
+    Once a function/method is decorated, you can register callbacks:
+        <target>.add_pre_callback(callback)        returns: label
+        <target>.add_post_callback(callback)       returns: label
+        <target>.add_exception_callback(callback)  returns: label
+    where <target> is the function/method that was decorated.
+
+    To remove a callback you use:
+        <target>.remove_callback(label)
+
+    To remove all callbacks use:
+        <target>.remove_callbacks()
+    """
+
     if callable(target_is_method):
-        return FunctionSupportsCallbacks(target_is_method)
+        # this support bare @supports_callbacks syntax (no calling brackets)
+        target = target_is_method
+        return FunctionSupportsCallbacks(target)
 
     if target_is_method:
         return MethodSupportsCallbacks
