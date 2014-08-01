@@ -78,16 +78,25 @@ This %s supports callbacks.
         # alias
         self.add_callback = self.add_post_callback
 
+    @property
+    def _callbacks_info(self):
+        format_string = '%38s  %9s  %6s  %10s  %11s  %14s'
+        lines = []
+        lines.append(format_string %
+                ('Label', 'priority', 'order', 'type', 'takes args', 'takes result'))
+
+        for label, info in sorted(self.callbacks.items()):
+            order = getattr(self, '_%s_callbacks' % info['type'])[info['priority']].index(label)
+            lines.append(format_string % (label, info['priority'], order,
+                    info['type'], info['takes_target_args'], info.get('takes_target_result', 'N/A')))
+
+        return '\n'.join(lines)
+
     def list_callbacks(self):
         '''
             List all of the callbacks registered to this function or method.
         '''
-        format_string = '%38s  %9s  %6s  %10s  %11s  %14s'
-        print format_string % ('Label', 'priority', 'order', 'type', 'takes args', 'takes result')
-        for label, info in self.callbacks.items():
-            order = getattr(self, '_%s_callbacks' % info['type'])[info['priority']].index(label)
-            print format_string % (label, info['priority'], order,
-                    info['type'], info['takes_target_args'], info.get('takes_target_result', 'N/A'))
+        print self._callbacks_info
 
     def add_post_callback(self, callback,
             priority=0,

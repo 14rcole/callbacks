@@ -59,6 +59,20 @@ class TestCallbackDecorator(unittest.TestCase):
         self.assertRaises(RuntimeError, foo.remove_callbacks, ['bad_label', 'good_label'])
         self.assertEqual(len(foo.callbacks), 1)
 
+    def test_callbacks_info(self):
+        foo.add_pre_callback(callback, label='a')
+        foo.add_pre_callback(callback, label='b', takes_target_args=True)
+        foo.add_post_callback(callback, label='c', priority=1.1,
+                takes_target_result=True)
+        foo.add_exception_callback(callback, label='d')
+        expected_string =\
+'''                                 Label   priority   order        type   takes args    takes result
+                                     a        0.0       0         pre        False             N/A
+                                     b        0.0       1         pre         True             N/A
+                                     c        1.1       0        post        False            True
+                                     d        0.0       0   exception        False             N/A'''
+        self.assertEquals(expected_string, foo._callbacks_info)
+
     def test_with_takes_target_args(self):
         result = foo(10, 20)
         self.assertEquals(result, (10, 20))
