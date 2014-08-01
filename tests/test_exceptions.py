@@ -30,8 +30,8 @@ def c4(exception, *args, **kwargs):
     called_order.append('c4')
     return 'c4 returned this'
 
-def c5(exception):
-    called_with.append((exception,))
+def c5(exception, *args, **kwargs):
+    called_with.append((exception, args, kwargs))
     called_order.append('c5')
     raise c5_error
 
@@ -101,8 +101,17 @@ class TestExceptions(unittest.TestCase):
 
         self.assertRaises(c5_error, foo, 1, baz=2)
 
+        expected_called_with = [(foo_error(), tuple(), {})]
+        self.assertEqual(expected_called_with, called_with)
+
+    def test_c5_takes_target_args(self):
+        foo.add_exception_callback(c5, takes_target_args=True, handles_exception=True)
+
+        self.assertRaises(c5_error, foo, 1, baz=2)
+
         self.assertEqual(len(called_with), 1)
-        self.assertTrue(isinstance(called_with[0][0], foo_error))
+        expected_called_with = [(foo_error(), (1,), {'baz': 2})]
+        self.assertEqual(expected_called_with, called_with)
 
     def test_c3_and_c4_and_c5(self):
         foo.add_exception_callback(c3, priority=0.1, takes_target_args=True)
@@ -148,10 +157,7 @@ class TestExceptions(unittest.TestCase):
 
         self.assertEqual(['c3', 'c5'], called_order)
         self.assertEqual(len(called_with), 2)
-        expected_called_with = [
-                ((1,), {'baz':2}),
-                (foo_error(),),
-                ]
+        expected_called_with = [((1,), {'baz': 2}), (foo_error(), (), {})]
         self.assertEqual(expected_called_with, called_with)
 
 
