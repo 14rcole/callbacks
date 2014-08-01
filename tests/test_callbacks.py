@@ -7,7 +7,7 @@ called_with = []
 def callback(*args, **kwargs):
     called_with.append((args, kwargs))
 
-@supports_callbacks
+@supports_callbacks()
 def foo(bar, baz='bone'):
     return (bar, baz)
 

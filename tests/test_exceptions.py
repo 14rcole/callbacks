@@ -96,6 +96,15 @@ class TestExceptions(unittest.TestCase):
                 ]
         self.assertEqual(expected_called_with, called_with)
 
+    def test_c4_without_takes_args(self):
+        foo.add_exception_callback(c4, handles_exception=True)
+
+        result = foo(1, baz=2)
+
+        self.assertEqual('c4 returned this', result)
+        expected_called_with = [(foo_error(), tuple(), {})]
+        self.assertEqual(expected_called_with, called_with)
+
     def test_c5(self):
         foo.add_exception_callback(c5, handles_exception=True)
 
