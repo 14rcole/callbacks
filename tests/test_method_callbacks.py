@@ -1,5 +1,6 @@
 from collections import defaultdict
 import unittest
+from mock import Mock
 
 from callbacks import supports_callbacks
 
@@ -65,3 +66,32 @@ class TestOnMethod(unittest.TestCase):
                 ((11, 21), {'key':'another_value'}))
         self.assertEquals(callback_called_with[0],
                 ((11, 21), {'key':'another_value'}))
+
+    def test_class_method(self):
+        e = self.example
+
+        e.example_method(1)
+
+        expected_called_with = [((1,),{})]
+        self.assertEquals(expected_called_with, e.method_called_with)
+        self.assertEquals([], callback_called_with)
+
+        ExampleClass.example_method.add_callback(example_callback,
+                takes_target_args=True)
+        e.example_method.add_callback(example_callback,
+                takes_target_args=False)
+
+        # registering callback on class does NOT make it run when an instance
+        # method executes
+        e.example_method(2)
+        expected_called_with = [((1,),{}), ((2,),{})]
+        self.assertEquals(expected_called_with, e.method_called_with)
+        self.assertEquals([(tuple(),{})], callback_called_with)
+
+        # calling the class method does NOT execute a callback registered on the
+        # instance method
+        m = Mock()
+        ExampleClass.example_method(m, 3)
+        expected_called_with = [((1,),{}), ((2,),{})]
+        self.assertEquals(expected_called_with, e.method_called_with)
+        self.assertEquals([(tuple(),{}), ((m, 3),{})], callback_called_with)
