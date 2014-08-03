@@ -13,10 +13,35 @@ class SupportsCallbacks(object):
     '''
     def __init__(self, target, target_is_method=False):
         self.id = uuid.uuid4()
-        self._target_is_method = target_is_method
+
         self.target = target
+        self.__name__ = target.__name__
+        if hasattr(target, '_argspec'):
+            self._argspec = target._argspec
+        else:
+            self._argspec = inspect.getargspec(target)
+
+        self._target_is_method = target_is_method
         self._update_docstring(target)
         self._initialize()
+
+    @property
+    def num_callbacks(self):
+        """
+            Retuns the number of callbacks that have been registered on this
+        function/method.  If called on an instance-method then it will also
+        return the number of class-level callbacks.
+
+        Returns:
+            num_callbacks
+            -or-
+            (num_class_level_callbacks, num_instance_level_callbacks)
+        """
+        num = len(self.callbacks.keys())
+        if (isinstance(self.target, self.__class__)):
+            return (self.target.num_callbacks, num)
+        else:
+            return num
 
     def __get__(self, obj, obj_type=None):
         """
@@ -25,9 +50,11 @@ class SupportsCallbacks(object):
         Keying off of the id of the decorator allows us to have multiple
         methods support callbacks on the same instance simultaneously.
         """
-        # in case this method is being called on the class instead of an
-        # instance
+        # method is being called on the class instead of an instance
         if obj is None:
+            # when target was decorated, it had not been bound yet, but now it
+            # is, so update _target_is_method.
+            self._target_is_method = True
             return self
 
         if (obj not in self._callback_registries):
@@ -58,7 +85,7 @@ This %s supports callbacks.
   %s.remove_callbacks()                  removes all callbacks
   %s.list_callbacks()                    prints callback information
 ''' % (target.__name__,
-               inspect.formatargspec(*inspect.getargspec(target)),
+               inspect.formatargspec(*self._argspec),
                old_docstring,
                method_or_function[self._target_is_method],
                target.__name__,
@@ -273,6 +300,7 @@ This %s supports callbacks.
             self._initialize()
 
     def __call__(self, *args, **kwargs):
+        print 'self', self, self.target
         if self._target_is_method:
             cb_args = args[1:] # skip over 'self' arg
         else:
