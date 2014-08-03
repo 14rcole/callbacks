@@ -1,5 +1,6 @@
 from types import MethodType
 from collections import defaultdict
+from weakref import WeakKeyDictionary, proxy
 import uuid
 import inspect
 
@@ -29,12 +30,14 @@ class SupportsCallbacks(object):
         if obj is None:
             return self
 
-        if (not hasattr(obj, '_callback_registry')):
-            obj._callback_registry = {}
-        if (self.id not in obj._callback_registry):
-            obj._callback_registry[self.id] = SupportsCallbacks(self.target,
+        if (obj not in self._callback_registries):
+            callback_registry = SupportsCallbacks(self,
                     target_is_method=True)
-        return MethodType(obj._callback_registry[self.id], obj, obj_type)
+            self._callback_registries[obj] = proxy(callback_registry)
+        else:
+            callback_registry = self._callback_registries[obj]
+
+        return MethodType(callback_registry, obj, obj_type)
 
     def _update_docstring(self, target):
         method_or_function = {True:'method',
@@ -68,6 +71,9 @@ This %s supports callbacks.
         self.__doc__ = docstring
 
     def _initialize(self):
+        # this will hold the registries for instance method callbacks
+        self._callback_registries = WeakKeyDictionary()
+
         # these hold the order in which callbacks were added
         self._pre_callbacks = defaultdict(list)
         self._post_callbacks = defaultdict(list)
