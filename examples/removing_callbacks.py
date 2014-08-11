@@ -21,17 +21,17 @@ label_a = target.add_callback(print_a)
 label_foo = target.add_callback(print_foo)
 label_bar = target.add_callback(print_bar)
 
-print "This should print one, a, foo, then bar:"
+print "This should print '1', 'a', 'foo', then 'bar':"
 target()
 
 # remove a single callback
 target.remove_callback(label_foo)
-print "This should print one, a, then bar:"
+print "This should print '1', 'a', then 'bar':"
 target()
 
 # remove a list of callbacks
 target.remove_callbacks(labels=[label_a, label_bar])
-print "This should print one:"
+print "This should print '1':"
 target()
 
 # even if you forgot to save the label, you can remove all callbacks
