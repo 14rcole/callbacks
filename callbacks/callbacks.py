@@ -300,7 +300,7 @@ This %s supports callbacks.
             self._initialize()
 
     def __call__(self, *args, **kwargs):
-        print 'self', self, self.target
+        #print 'self', self, self.target
         if self._target_is_method:
             cb_args = args[1:] # skip over 'self' arg
         else:
