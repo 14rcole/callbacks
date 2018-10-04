@@ -15,5 +15,5 @@ target.add_callback(callback)
 target() # prints "hello Polly!"
 ```
 
-[![Build Status](https://secure.travis-ci.org/davidlmorton/callbacks.svg?branch=master)](https://travis-ci.org/davidlmorton/callbacks)
-[![Coverage Status](https://img.shields.io/coveralls/davidlmorton/callbacks.svg)](https://coveralls.io/r/davidlmorton/callbacks)
+[![Build Status](https://secure.travis-ci.org/14rcole/callbacks.svg?branch=master)](https://travis-ci.org/14rcole/callbacks)
+[![Coverage Status](https://img.shields.io/coveralls/14rcole/callbacks.svg)](https://coveralls.io/r/14rcole/callbacks)
