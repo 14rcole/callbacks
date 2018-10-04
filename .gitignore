@@ -1,5 +1,6 @@
 *.pyc
 /*.egg
+/*.eggs
 /*.egg-info
 /.coverage
 /.tox
