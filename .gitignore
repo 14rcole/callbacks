@@ -6,3 +6,5 @@
 /.tox
 /AUTHORS
 /ChangeLog
+build/
+dist/
