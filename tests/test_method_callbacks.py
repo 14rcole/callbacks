@@ -1,3 +1,6 @@
+from __future__ import absolute_import 
+from __future__ import print_function
+
 from collections import defaultdict
 import unittest
 from mock import Mock
@@ -6,8 +9,8 @@ from callbacks import supports_callbacks
 
 callback_called_with = []
 def example_callback(*args, **kwargs):
-    print "CALLBACK called with args=%s kwargs=%s" %\
-                (str(args), str(kwargs))
+    print("CALLBACK called with args=%s kwargs=%s" %\
+                (str(args), str(kwargs)))
     callback_called_with.append((args, kwargs))
 
 class ExampleClass(object):
@@ -16,8 +19,8 @@ class ExampleClass(object):
 
     @supports_callbacks
     def example_method(self, *args, **kwargs):
-        print "METHOD called with args=%s kwargs=%s" %\
-                (str(args), str(kwargs))
+        print("METHOD called with args=%s kwargs=%s" %\
+                (str(args), str(kwargs)))
         self.method_called_with.append((args, kwargs))
         return
 

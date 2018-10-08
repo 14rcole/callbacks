@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import unittest
 
 from callbacks import supports_callbacks

@@ -1,8 +1,11 @@
-from types import MethodType
+from __future__ import absolute_import
+from __future__ import print_function
+
 from collections import defaultdict
 from weakref import WeakKeyDictionary, proxy
 import uuid
 import inspect
+import six
 
 class SupportsCallbacks(object):
     '''
@@ -37,7 +40,7 @@ class SupportsCallbacks(object):
             -or-
             (num_class_level_callbacks, num_instance_level_callbacks)
         """
-        num = len(self.callbacks.keys())
+        num = len(list(self.callbacks.keys()))
         if (isinstance(self.target, self.__class__)):
             return (self.target.num_callbacks, num)
         else:
@@ -64,7 +67,7 @@ class SupportsCallbacks(object):
         else:
             callback_registry = self._callback_registries[obj]
 
-        return MethodType(callback_registry, obj, obj_type)
+        return six.create_bound_method(callback_registry, obj)
 
     def _update_docstring(self, target):
         method_or_function = {True:'method',
@@ -129,7 +132,7 @@ This %s supports callbacks.
         '''
             List all of the callbacks registered to this function or method.
         '''
-        print self._callbacks_info
+        print(self._callbacks_info)
 
     def add_post_callback(self, callback,
             priority=0,
@@ -240,7 +243,7 @@ This %s supports callbacks.
         if label is None:
             label = uuid.uuid4()
 
-        if label in self.callbacks.keys():
+        if label in list(self.callbacks.keys()):
             raise RuntimeError('Callback with label="%s" already registered.'
                     % label)
 
@@ -262,7 +265,7 @@ This %s supports callbacks.
         Returns:
             None
         '''
-        if label not in self.callbacks.keys():
+        if label not in list(self.callbacks.keys()):
             raise RuntimeError(
                     'No callback with label "%s" attached to function "%s"' %
                     (label, self.target.__name__))
@@ -315,7 +318,7 @@ This %s supports callbacks.
         return target_result
 
     def _call_pre_callbacks(self, *args, **kwargs):
-        for priority in sorted(self._pre_callbacks.keys(), reverse=True):
+        for priority in sorted(list(self._pre_callbacks.keys()), reverse=True):
             for label in self._pre_callbacks[priority]:
                 callback = self.callbacks[label]['function']
                 takes_target_args = self.callbacks[label]['takes_target_args']
@@ -325,8 +328,9 @@ This %s supports callbacks.
                     callback()
 
     def _call_exception_callbacks(self, exception, *args, **kwargs):
+        #import pdb; pdb.set_trace()
         result = None
-        for priority in sorted(self._exception_callbacks.keys(), reverse=True):
+        for priority in sorted(list(self._exception_callbacks.keys()), reverse=True):
             for label in self._exception_callbacks[priority]:
                 callback = self.callbacks[label]['function']
                 takes_target_args = self.callbacks[label]['takes_target_args']
@@ -341,13 +345,15 @@ This %s supports callbacks.
                     try:
                         result = callback(exception, *args, **kwargs)
                         exception = None
-                    except Exception as exception:
+                    except Exception as e:
+                        exception = e
                         continue
                 elif handles_exception:
                     try:
                         result = callback(exception)
                         exception = None
-                    except Exception as exception:
+                    except Exception as e:
+                        exception = e
                         continue
                 elif takes_target_args:
                     callback(*args, **kwargs)
@@ -359,7 +365,7 @@ This %s supports callbacks.
             return result
 
     def _call_post_callbacks(self, target_result, *args, **kwargs):
-        for priority in sorted(self._post_callbacks.keys(), reverse=True):
+        for priority in sorted(list(self._post_callbacks.keys()), reverse=True):
             for label in self._post_callbacks[priority]:
                 callback = self.callbacks[label]['function']
                 takes_target_args = self.callbacks[label]['takes_target_args']

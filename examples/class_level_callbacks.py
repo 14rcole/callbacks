@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import print_function
+
 from callbacks import supports_callbacks
 
 #     The class-level callbacks are called as the
@@ -17,25 +20,25 @@ from callbacks import supports_callbacks
 #     INSTANCE_level_POST_callbacks
 
 def callback():
-    print "you're a pretty bird!"
+    print("you're a pretty bird!")
 
 class ExampleClass(object):
     @supports_callbacks
     def print_string(self, string):
-        print string,
+        print(string, end=" ")
 
 e = ExampleClass()
 e.print_string.add_post_callback(callback)
 
-print "This should print 'Hello, you're a pretty bird!':"
+print("This should print 'Hello, you're a pretty bird!':")
 e.print_string('Hello,')
 
 
 def class_level_callback():
-    print "Polly!"
-    print "I think",
+    print("Polly!")
+    print("I think", end=" ")
 
 ExampleClass.print_string.add_post_callback(class_level_callback)
-print "This should print 'Hello Polly!' then 'I think you're a pretty bird!':"
+print("This should print 'Hello Polly!' then 'I think you're a pretty bird!':")
 e.print_string('Hello')
 

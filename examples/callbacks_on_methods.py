@@ -1,15 +1,18 @@
+from __future__ import absolute_import
+from __future__ import print_function
+
 from callbacks import supports_callbacks
 
 def callback():
-    print "you're a pretty bird!"
+    print("you're a pretty bird!")
 
 class ExampleClass(object):
     @supports_callbacks
     def print_string(self, string):
-        print string,
+        print(string, end=" ")
 
 e = ExampleClass()
 e.print_string.add_callback(callback)
 
-print "This should print 'Hello, you're a pretty bird!':"
+print("This should print 'Hello, you're a pretty bird!':")
 e.print_string('Hello,')

@@ -1,20 +1,23 @@
+from __future__ import absolute_import
+from __future__ import print_function
+
 from callbacks import supports_callbacks
 
 def handler(exception):
-    print "I handled exception %s" % str(exception)
+    print("I handled exception %s" % str(exception))
 
 def reporter():
-    print "I noticed an exception occured"
+    print("I noticed an exception occured")
 
 @supports_callbacks
 def target():
     raise RuntimeError
 
 target.add_exception_callback(handler, handles_exception=True)
-print "This should print 'I handled exception' and not crash"
+print("This should print 'I handled exception' and not crash")
 target()
 
-print "This should print 'I noticed an exception occured' and then crash"
+print("This should print 'I noticed an exception occured' and then crash")
 target.remove_callbacks()
 target.add_exception_callback(reporter)
 target()
