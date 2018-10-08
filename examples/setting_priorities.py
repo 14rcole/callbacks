@@ -1,10 +1,13 @@
+from __future__ import absolute_import
+from __future__ import print_function
+
 from callbacks import supports_callbacks
 
 def print_first():
-    print "first"
+    print("first")
 
 def print_second():
-    print "second"
+    print("second")
 
 @supports_callbacks
 def without_priorities():
@@ -12,7 +15,7 @@ def without_priorities():
 
 without_priorities.add_callback(print_second)
 without_priorities.add_callback(print_first)
-print "This should print 'second' then 'first':"
+print("This should print 'second' then 'first':")
 without_priorities()
 
 
@@ -22,5 +25,5 @@ def with_priorities():
 
 with_priorities.add_callback(print_second, priority=1.0)
 with_priorities.add_callback(print_first, priority=1.1)
-print "This should print 'first' then 'second':"
+print("This should print 'first' then 'second':")
 with_priorities()
