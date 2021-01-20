@@ -19,11 +19,10 @@ class SupportsCallbacks(object):
 
         self.target = target
         self.__name__ = target.__name__
-        if hasattr(target, '_argspec'):
-            self._argspec = target._argspec
+        if isinstance(target, SupportsCallbacks):
+            self._signature = target._signature
         else:
-            self._argspec = inspect.getargspec(target)
-
+            self._signature = inspect.signature(target)
         self._target_is_method = target_is_method
         self._update_docstring(target)
         self._initialize()
@@ -88,7 +87,7 @@ This %s supports callbacks.
   %s.remove_callbacks()                  removes all callbacks
   %s.list_callbacks()                    prints callback information
 ''' % (target.__name__,
-               inspect.formatargspec(*self._argspec),
+               self._signature,
                old_docstring,
                method_or_function[self._target_is_method],
                target.__name__,
